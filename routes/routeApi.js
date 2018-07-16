@@ -17,6 +17,11 @@ module.exports = function (app) {
 
     app.route('/changePwd')
         .post(api.changePwd);
+        
+    app.route('/confirm')
+        .post(api.confirm);
+    // app.route('/typerule')
+    //     .post(api.typerule);
 
     app.route('/api')
         .get(api.api);
