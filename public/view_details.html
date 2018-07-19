@@ -296,6 +296,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
             socket.emit('update_details', username, bid);
         });
         socket.on('update_details',function(data){
+            console.log(data);
             var bid_table = $('#bid_table').DataTable();
             if (bid_table) {
                 bid_table.clear();    //清空数据
@@ -316,12 +317,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
             }
             $('#tb').append(html1);
             $('#bid_table').DataTable({
-                    // "initComplete": function () {
-                    //     var api = this.api();
-                    //     api.$('#tds').click(function () {
-                    //         api.search(this.innerHTML).draw();
-                    //     });
-                    // }
+                "order":[1,"desc"]
             });
             var line = new Morris.Line({
                 element: 'line-chart', //元素id

@@ -12,7 +12,6 @@ var crypto = require('crypto');
 
 var MongoClient = require("mongodb").MongoClient;
 var DBurl = 'mongodb://localhost:27017/myproject';
-const assert = require('assert');
 var mgclient = null;
 
 exports.login = function (req, res, next) {
@@ -64,6 +63,7 @@ exports.login = function (req, res, next) {
 exports.logout = function (req, res, next) {
     let username = req.session.username;
     delete fc_list[username];
+    delete user_tx_id[username];
     req.session.destroy();
     return res.render('login', {
         title: 'Login',
@@ -233,55 +233,27 @@ exports.getMyTxHistory = function (req, res) {
     let data = [];
     (async () => {
         try {
-            let fc = fc_list[username];
             //let mytx = await eval('fc.mytx()');
             //注意，函数mytx要遍历整条链，如果超过1000个区块，页面就挂了，可能超过10秒
             //相同页面上已经调用过一次
             //建议页面上用一个进度条显示进度，然后用session保存一个数组mytx，以后每次购买完成之后都mytx.push(新交易)
             //用增量更新来避免完整更新，以改善性能
-            let mytx = await fc.mytx();
             //for (let i = 0; i < mytx.length; i++) { //每个交易
             //    let tx = mytx[i];
-            for (let tx of mytx) {
-                //let now_txid = tx['tx_id'];
-                let now_txid = tx.tx_id;
-                //let writeset = tx['writeset'];
-                let writeset = tx.writeset;
-                //console.log(now_txid);
-                //for (let j = 0; j < writeset.length; j++) { //每一个key=bidXX
-                //    let the_b = writeset[j];
+            for (let mytx_id of user_tx_id[username]) {           //遍历当前用户的所有tx_id
+                let my_tx = {};              //比对到的交易信息
+                for (let tx of txall){          //从所有的交易缓存中查找当前交易信息
+                    if (tx.tx_id === mytx_id){
+                        my_tx = tx;
+                        break;
+                    }
+                }
+                let writeset = my_tx.writeset===undefined?[]:my_tx.writeset;
                 for (let the_b of writeset) {
-                    //let the_history = await eval('fc.query("history","' + the_b['key'] + '")');
-
                     //把买入加到返回的json数组里。
-                    the_b.timestamp = tx.timestamp;
+                    the_b.timestamp = my_tx.timestamp;
                     the_b.isBuy = true;
-
                     data.push(the_b);
-
-                    let the_history = await fc.query("history", the_b['key']); //key历史
-                    the_history = JSON.parse(the_history);
-
-                    //找是否卖出
-
-                    let count = 0;
-                    for (let k = 0; k < the_history.length; k++) {
-                        //console.log(the_history[k]);
-                        //if (the_history[k]['txid'] === now_txid) {
-                        if (the_history[k].txid === now_txid) {
-                            count = k;
-                        }
-                    }
-                    if (count !== (the_history.length - 1)) {
-                        let the_sell = {};
-                        the_sell.key = the_b.key;
-                        the_sell.is_delete = the_history[count + 1].isDelete;
-                        the_sell.value = the_history[count + 1].value;
-                        the_sell.timestamp = the_history[count + 1].timestamp;
-                        the_sell.isBuy = false;
-                        data.push(the_sell);
-                    }
-
                 }
             } //以上计算比较复杂，能否简化？
 
@@ -387,8 +359,8 @@ exports.api = function (req, res, next) {
                 res.write('提交交易成功！');
             } else {
                 var ret = await eval(cmd);
+                console.log(ret);
                 if (ret !== undefined) {
-                    // console.log(ret);
                     res.write(JSON.stringify(ret))
                     // res.write(ret)
                 }
@@ -437,4 +409,19 @@ exports.getAllTx = function (req, res, next) {
         res.end();
     })();
 
+};
+
+exports.global_var = function (req, res) {
+    (async () => {
+        try {
+            cmd = req.query.cmd;
+            var ret = await eval(cmd);
+            res.write(JSON.stringify(ret))
+        } catch (err) {
+            console.error(err);
+            res.write('错误:' + err); //?
+            //res.end(err.stringify()) //输出?
+        }
+        res.end();
+    })();
 };
